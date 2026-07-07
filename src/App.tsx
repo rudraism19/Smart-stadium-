@@ -54,6 +54,18 @@ export default function App() {
   const [routingResult, setRoutingResult] = useState<FanRoutingResponse | null>(null);
   const [routingLoading, setRoutingLoading] = useState(false);
 
+  // Screen reader announcer for live updates (WCAG accessibility compliance)
+  const [srAnnouncement, setSrAnnouncement] = useState<string>('');
+
+  // Handle manual selection and speak back status
+  const handleSelectGate = (gateId: string) => {
+    setSelectedGateId(gateId);
+    const gate = metrics.find(m => m.gateId === gateId);
+    if (gate) {
+      setSrAnnouncement(`Selected ${gate.gateName}. Current density is ${gate.crowdDensityPct} percent. Estimated wait is ${gate.estimatedWaitMinutes} minutes. Gateway state is ${gate.isOpen ? 'open' : 'blocked'}.`);
+    }
+  };
+
   // Test Runner state
   const [testOutput, setTestOutput] = useState<string>('');
   const [testsLoading, setTestsLoading] = useState(false);
@@ -126,6 +138,7 @@ export default function App() {
       const data = await res.json();
       setSynthesis(data);
       showBanner('success', 'GenAI Command synthesis refreshed successfully.');
+      setSrAnnouncement(`Operations synthesis loaded. Stadium risk score is ${data.overallStadiumRiskScore} percent with risk level ${data.riskLevel.replace('_', ' ')}. Action plan items include: ${data.actionPlan.slice(0, 2).join(' and ')}.`);
     } catch (err) {
       showBanner('warning', 'Command synthesis API failed.');
     } finally {
@@ -148,6 +161,11 @@ export default function App() {
       const data = await res.json();
       setRoutingResult(data);
       showBanner('success', 'Custom accessible route waypoints calculated.');
+      if (data.fallbackText) {
+        setSrAnnouncement(`Route planned. Screen reader directions: ${data.fallbackText}`);
+      } else {
+        setSrAnnouncement(`Route planned successfully with accessibility options accommodated.`);
+      }
     } catch (err) {
       showBanner('warning', 'Wayfinding pathfinder API call failed.');
     } finally {
@@ -272,6 +290,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] font-sans text-[#D1D5DB] flex flex-col selection:bg-orange-600 selection:text-white">
+      
+      {/* Screen reader dynamic announcer for accessible live logs */}
+      <div className="sr-only" aria-live="polite" role="status" id="accessibility-live-announcer">
+        {srAnnouncement}
+      </div>
       
       {/* Technical Tournament Header */}
       <header className="h-16 border-b border-[#333] bg-[#111] flex items-center justify-between px-6 shrink-0">
@@ -462,14 +485,15 @@ export default function App() {
                     return (
                       <button
                         key={m.gateId}
-                        onClick={() => setSelectedGateId(m.gateId)}
-                        className="absolute cursor-pointer transition-all z-25 outline-none flex flex-col items-center justify-center"
+                        onClick={() => handleSelectGate(m.gateId)}
+                        className="absolute cursor-pointer transition-all z-25 outline-none flex flex-col items-center justify-center focus-visible:ring-2 focus-visible:ring-orange-500 rounded p-1"
                         style={{
                           top: isG1 ? '8px' : isG3 ? 'auto' : '80px',
                           bottom: isG3 ? '8px' : 'auto',
                           left: isG1 || isG3 ? '135px' : isG4 ? '8px' : 'auto',
                           right: isG2 ? '8px' : 'auto'
                         }}
+                        aria-label={`Select and monitor ${m.gateName}. Current load: ${m.crowdDensityPct}%, State: ${m.isOpen ? 'online' : 'blocked'}.`}
                       >
                         {/* Dynamic glow effect */}
                         {m.isOpen ? (
@@ -652,57 +676,64 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {metrics.map((m) => (
-                <div
-                  key={m.gateId}
-                  className={`p-3.5 rounded border transition-all ${
-                    m.isOpen 
-                      ? 'bg-black/50 border-[#333] hover:border-[#444]' 
-                      : 'bg-orange-950/10 border-orange-900/40 shadow-inner'
-                  }`}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-xs font-mono font-bold text-gray-200">{m.gateName}</span>
-                    <span className={`px-2 py-0.5 rounded text-[8px] font-mono font-bold tracking-wider uppercase ${
-                      m.isOpen ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-900/60' : 'bg-orange-950/80 text-orange-400 border border-orange-900/60'
-                    }`}>
-                      {m.isOpen ? 'ONLINE' : 'BLOCKED'}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2 mt-3 text-center">
-                    <div className="bg-white/5 border border-white/5 p-2 rounded">
-                      <div className="text-[8px] text-gray-500 uppercase font-mono font-bold">Density</div>
-                      <div className={`text-xs font-mono font-bold mt-0.5 ${
-                        m.crowdDensityPct > 80 ? 'text-orange-500' : m.crowdDensityPct > 60 ? 'text-amber-500' : 'text-emerald-400'
+              {metrics.map((m) => {
+                const isSelected = selectedGateId === m.gateId;
+                return (
+                  <button
+                    key={m.gateId}
+                    onClick={() => handleSelectGate(m.gateId)}
+                    className={`p-3.5 rounded border text-left transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-orange-500 block w-full ${
+                      isSelected 
+                        ? 'bg-[#1e140d] border-orange-500/80 shadow-[0_0_12px_rgba(234,88,12,0.2)]'
+                        : m.isOpen 
+                          ? 'bg-black/50 border-[#333] hover:border-[#555]' 
+                          : 'bg-orange-950/10 border-orange-900/40 shadow-inner hover:border-[#555]'
+                    }`}
+                    aria-label={`${m.gateName} sensor stream. Currently ${m.isOpen ? 'online' : 'blocked'} with ${m.crowdDensityPct}% density and ${m.estimatedWaitMinutes} minutes wait. Click or press enter to inspect on mapping systems.`}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-xs font-mono font-bold text-gray-200">{m.gateName}</span>
+                      <span className={`px-2 py-0.5 rounded text-[8px] font-mono font-bold tracking-wider uppercase ${
+                        m.isOpen ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-900/60' : 'bg-orange-950/80 text-orange-400 border border-orange-900/60'
                       }`}>
-                        {m.crowdDensityPct}%
-                      </div>
-                    </div>
-                    <div className="bg-white/5 border border-white/5 p-2 rounded">
-                      <div className="text-[8px] text-gray-500 uppercase font-mono font-bold">Wait Time</div>
-                      <div className="text-xs font-mono font-bold text-gray-300 mt-0.5">
-                        {m.estimatedWaitMinutes}m
-                      </div>
-                    </div>
-                    <div className="bg-white/5 border border-white/5 p-2 rounded">
-                      <div className="text-[8px] text-gray-500 uppercase font-mono font-bold">Inflow/m</div>
-                      <div className="text-xs font-mono font-bold text-gray-300 mt-0.5">
-                        {m.throughputPerMinute}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
-                    {m.accessibilityFeatures.map(feat => (
-                      <span key={feat} className="bg-white/5 text-gray-400 text-[8px] px-1.5 py-0.5 rounded border border-white/10 flex items-center gap-0.5 font-mono uppercase">
-                        <Accessibility className="w-2.5 h-2.5 text-gray-500" />
-                        {feat.replace('_', ' ')}
+                        {m.isOpen ? 'ONLINE' : 'BLOCKED'}
                       </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 mt-3 text-center">
+                      <div className="bg-white/5 border border-white/5 p-2 rounded">
+                        <div className="text-[8px] text-gray-500 uppercase font-mono font-bold">Density</div>
+                        <div className={`text-xs font-mono font-bold mt-0.5 ${
+                          m.crowdDensityPct > 80 ? 'text-orange-500' : m.crowdDensityPct > 60 ? 'text-amber-500' : 'text-emerald-400'
+                        }`}>
+                          {m.crowdDensityPct}%
+                        </div>
+                      </div>
+                      <div className="bg-white/5 border border-white/5 p-2 rounded">
+                        <div className="text-[8px] text-gray-500 uppercase font-mono font-bold">Wait Time</div>
+                        <div className="text-xs font-mono font-bold text-gray-300 mt-0.5">
+                          {m.estimatedWaitMinutes}m
+                        </div>
+                      </div>
+                      <div className="bg-white/5 border border-white/5 p-2 rounded">
+                        <div className="text-[8px] text-gray-500 uppercase font-mono font-bold">Inflow/m</div>
+                        <div className="text-xs font-mono font-bold text-gray-300 mt-0.5">
+                          {m.throughputPerMinute}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
+                      {m.accessibilityFeatures.map(feat => (
+                        <span key={feat} className="bg-white/5 text-gray-400 text-[8px] px-1.5 py-0.5 rounded border border-white/10 flex items-center gap-0.5 font-mono uppercase">
+                          <Accessibility className="w-2.5 h-2.5 text-gray-500" />
+                          {feat.replace('_', ' ')}
+                        </span>
+                      ))}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
 
             {/* Stadium Transit Logs Inline */}
@@ -967,13 +998,14 @@ export default function App() {
               {/* Languages Preferences */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[8px] text-gray-500 font-mono font-bold uppercase mb-1 flex items-center gap-1">
+                  <label htmlFor="fan-language-select" className="block text-[8px] text-gray-500 font-mono font-bold uppercase mb-1 flex items-center gap-1">
                     <Globe className="w-3 h-3" /> Language Preference
                   </label>
                   <select
+                    id="fan-language-select"
                     value={fanProfile.languagePreference}
                     onChange={(e) => setFanProfile({ ...fanProfile, languagePreference: e.target.value })}
-                    className="w-full bg-[#111] text-gray-300 text-xs rounded p-1.5 border border-[#333] cursor-pointer outline-none focus:border-orange-500 font-mono"
+                    className="w-full bg-[#111] text-gray-300 text-xs rounded p-1.5 border border-[#333] cursor-pointer outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 font-mono"
                   >
                     <option value="en">English (US/UK)</option>
                     <option value="es">Español (ES/MX)</option>
@@ -982,13 +1014,14 @@ export default function App() {
                 </div>
 
                 <div>
-                  <label className="block text-[8px] text-gray-500 font-mono font-bold uppercase mb-1 flex items-center gap-1">
+                  <label htmlFor="fan-accessibility-select" className="block text-[8px] text-gray-500 font-mono font-bold uppercase mb-1 flex items-center gap-1">
                     <Accessibility className="w-3 h-3" /> Accessibility Level
                   </label>
                   <select
+                    id="fan-accessibility-select"
                     value={fanProfile.accessibilityNeeds}
                     onChange={(e) => setFanProfile({ ...fanProfile, accessibilityNeeds: e.target.value as any })}
-                    className="w-full bg-[#111] text-gray-300 text-xs rounded p-1.5 border border-[#333] cursor-pointer outline-none focus:border-orange-500 font-mono"
+                    className="w-full bg-[#111] text-gray-300 text-xs rounded p-1.5 border border-[#333] cursor-pointer outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 font-mono"
                   >
                     <option value="none">None (Standard)</option>
                     <option value="wheelchair">Wheelchair Access (ADA)</option>
@@ -1000,21 +1033,23 @@ export default function App() {
               {/* Waypoints */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[8px] text-gray-500 font-mono font-bold uppercase mb-1">Starting Point</label>
+                  <label htmlFor="fan-start-input" className="block text-[8px] text-gray-500 font-mono font-bold uppercase mb-1">Starting Point</label>
                   <input
+                    id="fan-start-input"
                     type="text"
                     value={fanProfile.currentLocation}
                     onChange={(e) => setFanProfile({ ...fanProfile, currentLocation: e.target.value })}
-                    className="w-full bg-[#111] text-gray-300 text-xs rounded p-1.5 border border-[#333] outline-none focus:border-orange-500 font-mono"
+                    className="w-full bg-[#111] text-gray-300 text-xs rounded p-1.5 border border-[#333] outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block text-[8px] text-gray-500 font-mono font-bold uppercase mb-1">Destination Seat</label>
+                  <label htmlFor="fan-dest-input" className="block text-[8px] text-gray-500 font-mono font-bold uppercase mb-1">Destination Seat</label>
                   <input
+                    id="fan-dest-input"
                     type="text"
                     value={fanProfile.destination}
                     onChange={(e) => setFanProfile({ ...fanProfile, destination: e.target.value })}
-                    className="w-full bg-[#111] text-gray-300 text-xs rounded p-1.5 border border-[#333] outline-none focus:border-orange-500 font-mono"
+                    className="w-full bg-[#111] text-gray-300 text-xs rounded p-1.5 border border-[#333] outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 font-mono"
                   />
                 </div>
               </div>
@@ -1030,12 +1065,13 @@ export default function App() {
 
             {/* Simulated Query input */}
             <div className="space-y-2 mb-4">
-              <label className="block text-[8px] text-gray-400 font-mono font-bold uppercase">Fan Waypoint Inquiry</label>
+              <label htmlFor="fan-query-input" className="block text-[8px] text-gray-400 font-mono font-bold uppercase">Fan Waypoint Inquiry</label>
               <textarea
+                id="fan-query-input"
                 value={fanQuery}
                 onChange={(e) => setFanQuery(e.target.value)}
                 rows={2}
-                className="w-full bg-black/60 text-gray-300 text-xs rounded p-2.5 border border-[#333] outline-none focus:border-orange-500 font-mono resize-none"
+                className="w-full bg-black/60 text-gray-300 text-xs rounded p-2.5 border border-[#333] outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 font-mono resize-none"
                 placeholder="Ex: How do I route past Gates safely with wheelchair needs?"
               ></textarea>
             </div>
