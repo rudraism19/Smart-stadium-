@@ -83,8 +83,8 @@ export default function App() {
   const routeResultRef = useRef<HTMLDivElement | null>(null);
 
   // Advanced Memory Safety: Refs for async timeouts and stream simulation intervals
-  const bannerTimeoutRef = useRef<any>(null);
-  const testIntervalRef = useRef<any>(null);
+  const bannerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const testIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Auto-scroll terminal to bottom as log data streams in
   useEffect(() => {
@@ -130,7 +130,7 @@ export default function App() {
       
       // Auto pre-select G4 if available, else first gate
       if (fetchedMetrics.length > 0) {
-        const hasG4 = fetchedMetrics.some((m: any) => m.gateId === 'G4');
+        const hasG4 = fetchedMetrics.some((m: CrowdMetric) => m.gateId === 'G4');
         if (hasG4) {
           setSelectedGateId('G4');
         } else {
@@ -840,7 +840,7 @@ export default function App() {
                   <select
                     id="fan-accessibility-select"
                     value={fanProfile.accessibilityNeeds}
-                    onChange={(e) => setFanProfile({ ...fanProfile, accessibilityNeeds: e.target.value as any })}
+                    onChange={(e) => setFanProfile({ ...fanProfile, accessibilityNeeds: e.target.value as FanProfile['accessibilityNeeds'] })}
                     className="w-full bg-[#111] text-gray-300 text-xs rounded p-1.5 border border-[#333] cursor-pointer outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 font-mono"
                   >
                     <option value="none">None (Standard)</option>

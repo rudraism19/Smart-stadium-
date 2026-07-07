@@ -14,7 +14,7 @@ export class SecurityEngine {
   private static readonly EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 
   // Regex pattern for phone number detection (supports standard, international, and dashed formats)
-  private static readonly PHONE_REGEX = /(\+?\d{1,4}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
+  private static readonly PHONE_REGEX = /(?:\+?\d{1,4}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}|\+\d{1,4}[-.\s]?\d{2,4}[-.\s]?\d{2,4}[-.\s]?\d{2,4}(?:[-.\s]?\d{2,4})?|\b\d{3}[-.\s]?\d{2,3}[-.\s]?\d{2,3}[-.\s]?\d{2,3}\b/g;
 
   // Signatures indicating potential LLM prompt injection attempts
   private static readonly INJECTION_SIGNATURES = [
@@ -38,43 +38,40 @@ export class SecurityEngine {
     let redactedText = text;
     let count = 0;
 
-    // Redact Emails
-    const emailMatches = redactedText.match(this.EMAIL_REGEX);
-    if (emailMatches) {
-      count += emailMatches.length;
-      redactedText = redactedText.replace(this.EMAIL_REGEX, '[REDACTED_EMAIL]');
-    }
+    // Redact Emails in a single pass
+    redactedText = redactedText.replace(this.EMAIL_REGEX, () => {
+      count++;
+      return '[REDACTED_EMAIL]';
+    });
 
-    // Redact Phone Numbers
-    const phoneMatches = redactedText.match(this.PHONE_REGEX);
-    if (phoneMatches) {
-      count += phoneMatches.length;
-      redactedText = redactedText.replace(this.PHONE_REGEX, '[REDACTED_PHONE]');
-    }
+    // Redact Phone Numbers in a single pass
+    redactedText = redactedText.replace(this.PHONE_REGEX, () => {
+      count++;
+      return '[REDACTED_PHONE]';
+    });
 
     // Redact Fan Profile specific names if supplied
     if (fanProfile) {
       if (fanProfile.name && fanProfile.name.trim().length > 0) {
         const nameRegex = new RegExp(`\\b${this.escapeRegExp(fanProfile.name)}\\b`, 'gi');
-        const nameMatches = redactedText.match(nameRegex);
-        if (nameMatches) {
-          count += nameMatches.length;
-          redactedText = redactedText.replace(nameRegex, '[REDACTED_NAME]');
-        }
+        redactedText = redactedText.replace(nameRegex, () => {
+          count++;
+          return '[REDACTED_NAME]';
+        });
       }
       if (fanProfile.email) {
         const emailRegex = new RegExp(this.escapeRegExp(fanProfile.email), 'gi');
-        if (redactedText.includes(fanProfile.email)) {
+        redactedText = redactedText.replace(emailRegex, () => {
           count++;
-          redactedText = redactedText.replace(emailRegex, '[REDACTED_EMAIL]');
-        }
+          return '[REDACTED_EMAIL]';
+        });
       }
       if (fanProfile.phone) {
         const phoneRegex = new RegExp(this.escapeRegExp(fanProfile.phone), 'gi');
-        if (redactedText.includes(fanProfile.phone)) {
+        redactedText = redactedText.replace(phoneRegex, () => {
           count++;
-          redactedText = redactedText.replace(phoneRegex, '[REDACTED_PHONE]');
-        }
+          return '[REDACTED_PHONE]';
+        });
       }
     }
 

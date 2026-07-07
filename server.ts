@@ -42,6 +42,24 @@ async function startServer() {
       if (!profile || !userQuery) {
         return res.status(400).json({ error: 'Missing profile or userQuery parameters.' });
       }
+
+      // Input Validation Guard
+      if (
+        typeof profile.id !== 'string' ||
+        typeof profile.name !== 'string' ||
+        typeof profile.email !== 'string' ||
+        typeof profile.phone !== 'string' ||
+        typeof profile.languagePreference !== 'string' ||
+        (profile.accessibilityNeeds !== 'none' &&
+         profile.accessibilityNeeds !== 'wheelchair' &&
+         profile.accessibilityNeeds !== 'sensory_sensitivity') ||
+        typeof profile.currentLocation !== 'string' ||
+        typeof profile.destination !== 'string' ||
+        typeof userQuery !== 'string'
+      ) {
+        return res.status(400).json({ error: 'Invalid profile data structure or userQuery format.' });
+      }
+
       const routingResult = await orchestrator.planFanRoute(profile, userQuery);
       res.json(routingResult);
     } catch (err: any) {
