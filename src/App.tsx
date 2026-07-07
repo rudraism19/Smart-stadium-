@@ -27,13 +27,6 @@ import {
 // Domain models imported conceptually from our shared types
 import { CrowdMetric, StadiumIncident, TransitUpdate, FanProfile, FanRoutingResponse, OperationsCommandSynthesis } from './types';
 
-// Modular UI Components for higher-quality code architecture
-import { Header } from './components/Header';
-import { Footer } from './components/Footer';
-import { MarqueeTicker } from './components/MarqueeTicker';
-import { PerformanceMatrix } from './components/PerformanceMatrix';
-import { MarkdownRenderer } from './components/MarkdownRenderer';
-
 export default function App() {
   // Stadium stream states
   const [metrics, setMetrics] = useState<CrowdMetric[]>([]);
@@ -82,10 +75,6 @@ export default function App() {
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const routeResultRef = useRef<HTMLDivElement | null>(null);
 
-  // Advanced Memory Safety: Refs for async timeouts and stream simulation intervals
-  const bannerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const testIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
   // Auto-scroll terminal to bottom as log data streams in
   useEffect(() => {
     if (terminalRef.current) {
@@ -99,14 +88,6 @@ export default function App() {
       routeResultRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }, [routingResult]);
-
-  // Clean up timers on unmount to prevent memory leaks and warning logs
-  useEffect(() => {
-    return () => {
-      if (bannerTimeoutRef.current) clearTimeout(bannerTimeoutRef.current);
-      if (testIntervalRef.current) clearInterval(testIntervalRef.current);
-    };
-  }, []);
 
   // Notification Banner
   const [banner, setBanner] = useState<{ type: 'success' | 'warning' | 'info'; message: string } | null>({
@@ -130,7 +111,7 @@ export default function App() {
       
       // Auto pre-select G4 if available, else first gate
       if (fetchedMetrics.length > 0) {
-        const hasG4 = fetchedMetrics.some((m: CrowdMetric) => m.gateId === 'G4');
+        const hasG4 = fetchedMetrics.some((m: any) => m.gateId === 'G4');
         if (hasG4) {
           setSelectedGateId('G4');
         } else {
@@ -143,13 +124,9 @@ export default function App() {
   };
 
   const showBanner = (type: 'success' | 'warning' | 'info', message: string) => {
-    if (bannerTimeoutRef.current) {
-      clearTimeout(bannerTimeoutRef.current);
-    }
     setBanner({ type, message });
-    bannerTimeoutRef.current = setTimeout(() => {
+    setTimeout(() => {
       setBanner(null);
-      bannerTimeoutRef.current = null;
     }, 6000);
   };
 
@@ -226,9 +203,6 @@ export default function App() {
 
   // Run Backend Test Suite with dynamic log streaming simulation
   const handleRunTests = async () => {
-    if (testIntervalRef.current) {
-      clearInterval(testIntervalRef.current);
-    }
     setTestsLoading(true);
     setTestOutput('Launching Smart Stadium DevSecOps Audit & Test runner...\n');
     setTestsPassed(null);
@@ -241,16 +215,13 @@ export default function App() {
       let currentOutput = 'Initializing secure sandbox...\nStarting Aztec Node-04 check-in protocol...\n\n';
       let lineIndex = 0;
       
-      testIntervalRef.current = setInterval(() => {
+      const interval = setInterval(() => {
         if (lineIndex < lines.length) {
           currentOutput += lines[lineIndex] + '\n';
           setTestOutput(currentOutput);
           lineIndex++;
         } else {
-          if (testIntervalRef.current) {
-            clearInterval(testIntervalRef.current);
-            testIntervalRef.current = null;
-          }
+          clearInterval(interval);
           setTestsPassed(data.success);
           setTestsLoading(false);
           if (data.success) {
@@ -262,10 +233,6 @@ export default function App() {
       }, 35); // Fast-paced 35ms dynamic streaming scroll
       
     } catch (err) {
-      if (testIntervalRef.current) {
-        clearInterval(testIntervalRef.current);
-        testIntervalRef.current = null;
-      }
       setTestOutput('Test Execution Interrupted: Server failed to execute tests.');
       setTestsPassed(false);
       setTestsLoading(false);
@@ -274,7 +241,51 @@ export default function App() {
 
   // Custom simple React component to render sanitized markdown cleanly
   const renderMarkdown = (text: string) => {
-    return <MarkdownRenderer text={text} />;
+    if (!text) return null;
+    
+    // Unescape common sanitized HTML tokens for display
+    const unescaped = text
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#x27;/g, "'")
+      .replace(/&#x2F;/g, '/')
+      .replace(/&amp;/g, '&');
+
+    const lines = unescaped.split('\n');
+    return (
+      <div className="space-y-2 text-slate-200">
+        {lines.map((line, i) => {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('###')) {
+            return (
+              <h4 key={i} className="text-sm font-semibold text-emerald-400 mt-3 flex items-center gap-1">
+                <Compass className="w-4 h-4 text-emerald-400" />
+                {trimmed.replace('###', '').trim()}
+              </h4>
+            );
+          }
+          if (trimmed.startsWith('Paso') || trimmed.startsWith('Step') || trimmed.startsWith('Étape') || /^\d+\./.test(trimmed)) {
+            return (
+              <div key={i} className="bg-slate-900 p-2.5 rounded border border-slate-800/80 my-1 text-xs">
+                {trimmed}
+              </div>
+            );
+          }
+          if (trimmed.startsWith('*') || trimmed.startsWith('-')) {
+            const formatted = trimmed.replace(/^[\*\-]\s*/, '');
+            return (
+              <div key={i} className="flex items-start gap-2 text-xs pl-2 text-slate-300">
+                <span className="text-emerald-500">•</span>
+                <span>{formatted}</span>
+              </div>
+            );
+          }
+          if (trimmed.length === 0) return <div key={i} className="h-1" />;
+          return <p key={i} className="text-xs text-slate-300 leading-relaxed">{trimmed}</p>;
+        })}
+      </div>
+    );
   };
 
   return (
@@ -286,7 +297,41 @@ export default function App() {
       </div>
       
       {/* Technical Tournament Header */}
-      <Header />
+      <header className="h-16 border-b border-[#333] bg-[#111] flex items-center justify-between px-6 shrink-0">
+        <div className="flex items-center">
+          <div className="w-8 h-8 bg-orange-600 rounded flex items-center justify-center font-bold text-white text-xs tracking-wider">
+            FWC
+          </div>
+          <div className="ml-4">
+            <h1 className="text-sm font-bold tracking-widest text-white uppercase flex items-center gap-2">
+              Smart Stadium Command Platform
+              <span className="text-[9px] bg-orange-600/20 text-orange-400 font-mono px-1.5 py-0.5 rounded border border-orange-600/30">
+                STADIUM-AZTEC-04
+              </span>
+            </h1>
+            <p className="text-[10px] text-gray-500 font-mono uppercase tracking-wider">
+              FWC-2026-STADIUM-AZTEC-04 // REAL-TIME OPS ENGINE
+            </p>
+          </div>
+        </div>
+        
+        <div className="hidden lg:flex items-center space-x-6 text-[10px] font-mono">
+          <div className="flex flex-col items-end">
+            <span className="text-gray-500 uppercase">SYSTEM STATUS</span>
+            <span className="text-emerald-400 font-bold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              GENAI ORCHESTRATOR ONLINE
+            </span>
+          </div>
+          <div className="flex flex-col items-end">
+            <span className="text-gray-500 uppercase">PII PROTECTION</span>
+            <span className="text-blue-400 font-bold">SHIELD FILTER: ACTIVE</span>
+          </div>
+          <div className="bg-white/5 px-3 py-2 border border-white/10 rounded text-xs text-white">
+            UTC 14:22:09
+          </div>
+        </div>
+      </header>
 
       {/* Global Alerts & Feedback Banner */}
       {banner && (
@@ -301,7 +346,76 @@ export default function App() {
       )}
 
       {/* Dynamic Scrolling Telemetry Ticker */}
-      <MarqueeTicker metrics={metrics} />
+      <div className="bg-black/90 border-b border-[#222] h-9 flex items-center overflow-hidden font-mono text-[10px] select-none text-gray-400 relative shrink-0">
+        <div className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-[#0A0A0A] via-[#0A0A0A]/95 to-transparent z-10 pointer-events-none flex items-center pl-6 pr-8">
+          <span className="text-[9px] bg-orange-600 text-white font-bold px-1.5 py-0.5 rounded tracking-widest text-center flex items-center gap-1 shrink-0 shadow-lg shadow-orange-900/20">
+            <Radio className="w-2.5 h-2.5 animate-pulse text-white" /> LIVE TELEMETRY
+          </span>
+        </div>
+        <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-[#0A0A0A] to-transparent z-10 pointer-events-none"></div>
+        
+        <div className="w-full flex items-center overflow-hidden">
+          <div className="animate-marquee flex items-center gap-12 pl-36">
+            {/* Iteration 1 */}
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              UTC SERVER: <span className="text-white">14:22:09</span>
+            </span>
+            <span className="text-gray-600">//</span>
+            {metrics.map(m => (
+              <React.Fragment key={`tick1-${m.gateId}`}>
+                <span className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${m.isOpen ? 'bg-emerald-500' : 'bg-orange-600 animate-ping'}`}></span>
+                  {m.gateName}: <span className={m.crowdDensityPct > 80 ? 'text-orange-400 font-bold' : 'text-white'}>{m.crowdDensityPct}% LOAD</span>
+                  <span className="text-gray-500">({m.estimatedWaitMinutes}m wait)</span>
+                </span>
+                <span className="text-gray-600">//</span>
+              </React.Fragment>
+            ))}
+            <span className="flex items-center gap-1.5 text-blue-400">
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-400" /> OWASP SHIELD: COMPLIANT
+            </span>
+            <span className="text-gray-600">//</span>
+            <span className="flex items-center gap-1.5 text-orange-400 font-bold">
+              <AlertTriangle className="w-3.5 h-3.5 text-orange-500 animate-pulse" /> RISK INDEX: {metrics.some(m => !m.isOpen) ? '7.8 SEVERE' : '2.1 LOW'}
+            </span>
+            <span className="text-gray-600">//</span>
+            <span className="flex items-center gap-1.5">
+              WIFI TEMP: <span className="text-white">24°C</span>
+            </span>
+            <span className="text-gray-600">//</span>
+
+            {/* Iteration 2 (Duplicates for seamless loop) */}
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              UTC SERVER: <span className="text-white">14:22:09</span>
+            </span>
+            <span className="text-gray-600">//</span>
+            {metrics.map(m => (
+              <React.Fragment key={`tick2-${m.gateId}`}>
+                <span className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${m.isOpen ? 'bg-emerald-500' : 'bg-orange-600 animate-ping'}`}></span>
+                  {m.gateName}: <span className={m.crowdDensityPct > 80 ? 'text-orange-400 font-bold' : 'text-white'}>{m.crowdDensityPct}% LOAD</span>
+                  <span className="text-gray-500">({m.estimatedWaitMinutes}m wait)</span>
+                </span>
+                <span className="text-gray-600">//</span>
+              </React.Fragment>
+            ))}
+            <span className="flex items-center gap-1.5 text-blue-400">
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-400" /> OWASP SHIELD: COMPLIANT
+            </span>
+            <span className="text-gray-600">//</span>
+            <span className="flex items-center gap-1.5 text-orange-400 font-bold">
+              <AlertTriangle className="w-3.5 h-3.5 text-orange-500 animate-pulse" /> RISK INDEX: {metrics.some(m => !m.isOpen) ? '7.8 SEVERE' : '2.1 LOW'}
+            </span>
+            <span className="text-gray-600">//</span>
+            <span className="flex items-center gap-1.5">
+              WIFI TEMP: <span className="text-white">24°C</span>
+            </span>
+            <span className="text-gray-600">//</span>
+          </div>
+        </div>
+      </div>
 
       {/* Primary Dashboard Bento Grid layout */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-x-hidden">
@@ -800,7 +914,73 @@ export default function App() {
         <div className="lg:col-span-5 space-y-6">
           
           {/* LIVE COMMAND PERFORMANCE MATRIX */}
-          <PerformanceMatrix />
+          <section className="bg-[#141414] border border-[#333] rounded-lg p-5 shadow-xl space-y-4 glowing-panel">
+            <div className="flex items-center gap-2 border-b border-[#333] pb-3">
+              <Activity className="w-4 h-4 text-orange-500" />
+              <h2 className="text-xs font-mono font-bold uppercase tracking-widest text-gray-300">Command Performance Matrix</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-1 gap-4">
+              
+              {/* Stat 1: Total Occupancy */}
+              <div className="bg-black/40 border border-white/5 rounded p-3.5 flex flex-col justify-between">
+                <div className="text-gray-500 font-mono text-[9px] uppercase tracking-wider mb-2">Total Stadium Occupancy</div>
+                <div className="flex items-baseline gap-2">
+                  <div className="text-4xl font-light text-white tracking-tight">82,419</div>
+                  <span className="text-[10px] text-emerald-400 font-mono">LIVE INFLOW</span>
+                </div>
+                <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden my-2.5">
+                  <div className="w-[82%] h-full bg-orange-600 rounded-full animate-pulse"></div>
+                </div>
+                <div className="flex justify-between text-[9px] font-mono text-gray-500 uppercase">
+                  <span>93% Capacity Limit</span>
+                  <span>+1.2% / min rate</span>
+                </div>
+              </div>
+
+              {/* Stat 2: GenAI Guardrails */}
+              <div className="bg-black/40 border border-white/5 rounded p-3.5">
+                <div className="text-gray-500 font-mono text-[9px] uppercase tracking-wider mb-3 pb-1 border-b border-white/5">GenAI Guardrails Performance</div>
+                <div className="space-y-2 font-mono text-[10px]">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Hallucination Boundary</span>
+                    <span className="text-emerald-400 bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-900/30 font-bold">PASSED (0.002%)</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">PII Redaction Rate</span>
+                    <span className="text-blue-400 bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-900/30 font-bold">100% SECURE</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Context Safety</span>
+                    <span className="text-white">0.998 // OPTIMAL</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Latency (Orchestrator)</span>
+                    <span className="text-white font-bold">42ms</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stat 3: Fan Experience Health */}
+              <div className="bg-black/40 border border-white/5 rounded p-3.5">
+                <div className="text-gray-500 font-mono text-[9px] uppercase tracking-wider mb-3 pb-1 border-b border-white/5">Fan Experience Health</div>
+                <div className="grid grid-cols-2 gap-3 mb-2.5">
+                  <div className="h-12 bg-white/5 rounded flex flex-col items-center justify-center border border-white/5">
+                    <span className="text-lg font-bold text-white tracking-tight">4.8</span>
+                    <span className="text-[7px] text-gray-500 uppercase font-mono">Avg CSAT Rating</span>
+                  </div>
+                  <div className="h-12 bg-white/5 rounded flex flex-col items-center justify-center border border-white/5">
+                    <span className="text-lg font-bold text-emerald-400 tracking-tight">122</span>
+                    <span className="text-[7px] text-gray-500 uppercase font-mono font-bold">Assist Requests</span>
+                  </div>
+                </div>
+                <div className="text-[9px] text-gray-500 font-mono italic text-center uppercase">
+                  "Accessible route chosen by 14% of users."
+                </div>
+              </div>
+
+            </div>
+          </section>
 
           {/* Fan Experience Wayfinder Simulator */}
           <section className="bg-[#141414] border border-[#333] rounded-lg p-5 shadow-xl relative glowing-panel">
@@ -840,7 +1020,7 @@ export default function App() {
                   <select
                     id="fan-accessibility-select"
                     value={fanProfile.accessibilityNeeds}
-                    onChange={(e) => setFanProfile({ ...fanProfile, accessibilityNeeds: e.target.value as FanProfile['accessibilityNeeds'] })}
+                    onChange={(e) => setFanProfile({ ...fanProfile, accessibilityNeeds: e.target.value as any })}
                     className="w-full bg-[#111] text-gray-300 text-xs rounded p-1.5 border border-[#333] cursor-pointer outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 font-mono"
                   >
                     <option value="none">None (Standard)</option>
@@ -1018,7 +1198,17 @@ export default function App() {
       </main>
 
       {/* WCAG Footer */}
-      <Footer />
+      <footer className="h-8 border-t border-[#333] bg-[#0A0A0A] px-6 flex items-center justify-between text-[9px] font-mono text-gray-600 uppercase tracking-widest shrink-0">
+        <div>
+          FIFA World Cup 2026™ Smart Stadium System Node ID: 1982-CO
+        </div>
+        <div className="flex gap-4">
+          <span className="flex items-center gap-1 text-emerald-400 font-bold">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> WCAG 2.2 AAA Compliant
+          </span>
+          <span>Security level: ENTERPRISE SHIELD</span>
+        </div>
+      </footer>
 
     </div>
   );

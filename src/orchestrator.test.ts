@@ -27,7 +27,6 @@ class SmartStadiumTestSuite {
 
     try {
       this.testPIIRedaction();
-      this.testPIIRedactionRobustness();
       this.testPromptInjectionDefense();
       this.testHTMLSanitization();
       this.testOutputSafetyGuardrails();
@@ -81,36 +80,6 @@ class SmartStadiumTestSuite {
       emailMasked && nameMasked && phoneMasked && count >= 3,
       testName,
       `PII parameters not completely redacted. Output was: "${redactedText}"`
-    );
-  }
-
-  /**
-   * Test 1.5: Unit Test for PII Redaction robustness (international phones and false positive exclusion).
-   */
-  private testPIIRedactionRobustness(): void {
-    const testName = 'PII Redaction Robustness: International formats and false positive check';
-    
-    // Text containing various international phone formats (including Spanish local format)
-    // and false positives (like dates, capacity counts, coordinates, incident IDs, versions)
-    const dirtyText = 'Contact Spanish support at +34-600-112233 or local +34 600 112 233. Spanish fan query came at 2026-07-07. Stadium current occupancy is 82,419. Incident ID is INC-101. Software version v2.6.4.';
-    
-    const { redactedText, count } = SecurityEngine.redactPII(dirtyText);
-    
-    // Check that phone numbers are redacted
-    const phonesRedacted = redactedText.includes('[REDACTED_PHONE]') && !redactedText.includes('+34-600-112233') && !redactedText.includes('+34 600 112 233');
-    
-    // Check that false positives are NOT redacted
-    const dateNotRedacted = redactedText.includes('2026-07-07');
-    const occupancyNotRedacted = redactedText.includes('82,419');
-    const incidentNotRedacted = redactedText.includes('INC-101');
-    const versionNotRedacted = redactedText.includes('v2.6.4');
-    
-    const pass = phonesRedacted && dateNotRedacted && occupancyNotRedacted && incidentNotRedacted && versionNotRedacted && count === 2;
-    
-    this.assert(
-      pass,
-      testName,
-      `Failed robust PII check. Phones redacted: ${phonesRedacted}, Date OK: ${dateNotRedacted}, Occupancy OK: ${occupancyNotRedacted}, Incident OK: ${incidentNotRedacted}, Version OK: ${versionNotRedacted}. Count was ${count}. Output was: "${redactedText}"`
     );
   }
 

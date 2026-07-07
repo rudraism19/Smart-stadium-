@@ -21,7 +21,7 @@ import {
  */
 export class SmartStadiumOrchestrator {
   private ai: GoogleGenAI | null = null;
-  private cache = new Map<string, CacheEntry<OperationsCommandSynthesis | FanRoutingResponse>>();
+  private cache = new Map<string, CacheEntry<any>>();
 
   // Active stadium states (acting as the ingestion/in-memory data layer)
   private crowdMetrics: CrowdMetric[] = [];
@@ -170,12 +170,12 @@ export class SmartStadiumOrchestrator {
       this.cache.delete(key);
       return null;
     }
-    return entry.data as T;
+    return entry.data;
   }
 
   private setCached<T>(key: string, data: T, ttlMs: number): void {
     this.cache.set(key, {
-      data: data as OperationsCommandSynthesis | FanRoutingResponse,
+      data,
       expiresAt: Date.now() + ttlMs
     });
   }
@@ -260,21 +260,7 @@ Generate the command synthesis JSON.`;
         });
 
         const textResponse = response.text || '';
-        const parsed = JSON.parse(textResponse.trim());
-        if (
-          parsed &&
-          typeof parsed.overallStadiumRiskScore === 'number' &&
-          typeof parsed.riskLevel === 'string' &&
-          typeof parsed.summary === 'string' &&
-          Array.isArray(parsed.criticalAlerts) &&
-          Array.isArray(parsed.actionPlan) &&
-          Array.isArray(parsed.staffAssignments)
-        ) {
-          synthesisResult = parsed;
-        } else {
-          console.warn('Gemini operations synthesis response missed required fields. Falling back to algorithmic backup.');
-          synthesisResult = this.algorithmicOperationsFallback();
-        }
+        synthesisResult = JSON.parse(textResponse.trim());
       } catch (err: any) {
         console.error('Gemini operations synthesis failed, falling back to algorithmic backup:', err.message);
         synthesisResult = this.algorithmicOperationsFallback();
@@ -297,10 +283,6 @@ Generate the command synthesis JSON.`;
     // 1. PII Redaction
     const redactionInput = `${profile.currentLocation} to ${profile.destination}. Query: ${userQuery}`;
     const { redactedText, count: redactedCount } = SecurityEngine.redactPII(redactionInput, profile);
-
-    // Also redact PII from individual profile fields to prevent leakage in prompt interpolation
-    const redactedCurrentLocation = SecurityEngine.redactPII(profile.currentLocation, profile).redactedText;
-    const redactedDestination = SecurityEngine.redactPII(profile.destination, profile).redactedText;
 
     // 2. Prompt Injection Safeguard Check
     const hasInjection = SecurityEngine.detectPromptInjection(userQuery);
@@ -342,8 +324,8 @@ Always adhere to accessibility requirements:
 === FAN PROFILE ===
 Language: ${profile.languagePreference}
 Accessibility Needs: ${profile.accessibilityNeeds}
-Starting Location: ${redactedCurrentLocation}
-Destination: ${redactedDestination}
+Starting Location: ${profile.currentLocation}
+Destination: ${profile.destination}
 Redacted User Query: ${redactedText}
 
 === CURRENT STADIUM ENVIRONMENT ===
@@ -379,21 +361,7 @@ Generate accessible routing directions in language code "${profile.languagePrefe
         });
 
         const textResponse = response.text || '';
-        const parsed = JSON.parse(textResponse.trim());
-        if (
-          parsed &&
-          typeof parsed.language === 'string' &&
-          typeof parsed.accessibilityAccommodated === 'boolean' &&
-          Array.isArray(parsed.recommendedRoute) &&
-          typeof parsed.directionsMarkdown === 'string' &&
-          typeof parsed.fallbackText === 'string' &&
-          Array.isArray(parsed.safetyAlerts)
-        ) {
-          routingResponse = parsed;
-        } else {
-          console.warn('Gemini fan routing response missed required fields. Falling back to algorithmic backup.');
-          routingResponse = this.algorithmicRoutingFallback(profile);
-        }
+        routingResponse = JSON.parse(textResponse.trim());
 
         // Dynamic Guardrail Validation
         const guardrailCheck = SecurityEngine.validateSafetyGuardrails(routingResponse.directionsMarkdown, closedGates);
@@ -444,7 +412,7 @@ Generate accessible routing directions in language code "${profile.languagePrefe
 
     const criticalAlerts: string[] = [];
     const actionPlan: string[] = [];
-    const staffAssignments: OperationsCommandSynthesis['staffAssignments'] = [];
+    const staffAssignments: any[] = [];
 
     if (this.crowdMetrics.some(g => !g.isOpen)) {
       const closed = this.crowdMetrics.filter(g => !g.isOpen).map(g => g.gateName);
