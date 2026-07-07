@@ -18,9 +18,10 @@ export class SecurityEngine {
 
   // Signatures indicating potential LLM prompt injection attempts
   private static readonly INJECTION_SIGNATURES = [
-    /ignore\s+(all\s+)?previous\s+instructions/i,
+    /ignore\s+(all\s+)?previous\s+(instructions|rules|directives|prompts)/i,
     /system\s+override/i,
-    /you\s+are\s+now\s+an?\s+admin/i,
+    /you\s+are\s+now\s+an?\s+(admin|stadium admin|system administrator)/i,
+    /act\s+as\s+(an?\s+)?(stadium\s+)?admin/i,
     /developer\s+mode/i,
     /bypass\s+restrictions/i,
     /output\s+the\s+system\s+prompt/i,
