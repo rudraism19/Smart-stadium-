@@ -1,1 +1,51 @@
 @import "tailwindcss";
+
+@layer utilities {
+  /* Modern custom scrollbars for high-tech panels */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: rgba(10, 10, 10, 0.4);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(234, 88, 12, 0.3);
+    border-radius: 4px;
+    border: 1px solid rgba(234, 88, 12, 0.1);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(234, 88, 12, 0.6);
+  }
+
+  /* Keyframe animations for live scrolling tickers */
+  @keyframes marquee {
+    0% {
+      transform: translateX(0%);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+
+  .animate-marquee {
+    display: inline-flex;
+    white-space: nowrap;
+    animation: marquee 35s linear infinite;
+  }
+
+  .animate-marquee:hover {
+    animation-play-state: paused;
+  }
+}
+
+/* Custom glowing borders and interactive visual elements */
+.glowing-panel {
+  box-shadow: 0 0 15px -3px rgba(234, 88, 12, 0.05), inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glowing-panel:hover {
+  box-shadow: 0 0 20px -3px rgba(234, 88, 12, 0.12), inset 0 0 0 1px rgba(234, 88, 12, 0.15);
+  border-color: rgba(234, 88, 12, 0.3) !important;
+}

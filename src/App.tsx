@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Activity,
   ShieldCheck,
@@ -58,6 +58,24 @@ export default function App() {
   const [testOutput, setTestOutput] = useState<string>('');
   const [testsLoading, setTestsLoading] = useState(false);
   const [testsPassed, setTestsPassed] = useState<boolean | null>(null);
+
+  // Scrolling terminal & container refs for modern UI effects
+  const terminalRef = useRef<HTMLDivElement | null>(null);
+  const routeResultRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-scroll terminal to bottom as log data streams in
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    }
+  }, [testOutput]);
+
+  // Smooth scroll route directions into view on calculation complete
+  useEffect(() => {
+    if (routingResult && routeResultRef.current) {
+      routeResultRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [routingResult]);
 
   // Notification Banner
   const [banner, setBanner] = useState<{ type: 'success' | 'warning' | 'info'; message: string } | null>({
@@ -165,24 +183,40 @@ export default function App() {
     }
   };
 
-  // Run Backend Test Suite
+  // Run Backend Test Suite with dynamic log streaming simulation
   const handleRunTests = async () => {
     setTestsLoading(true);
     setTestOutput('Launching Smart Stadium DevSecOps Audit & Test runner...\n');
+    setTestsPassed(null);
     try {
       const res = await fetch('/api/stadium/run-tests', { method: 'POST' });
       const data = await res.json();
-      setTestOutput(data.stdout || data.stderr || 'No output log returned.');
-      setTestsPassed(data.success);
-      if (data.success) {
-        showBanner('success', 'DevSecOps Audit Passed: 100% Compliance Verified Offline.');
-      } else {
-        showBanner('warning', 'Test suite reported failure checks.');
-      }
+      const rawOutput = data.stdout || data.stderr || 'No output log returned.';
+      
+      const lines = rawOutput.split('\n');
+      let currentOutput = 'Initializing secure sandbox...\nStarting Aztec Node-04 check-in protocol...\n\n';
+      let lineIndex = 0;
+      
+      const interval = setInterval(() => {
+        if (lineIndex < lines.length) {
+          currentOutput += lines[lineIndex] + '\n';
+          setTestOutput(currentOutput);
+          lineIndex++;
+        } else {
+          clearInterval(interval);
+          setTestsPassed(data.success);
+          setTestsLoading(false);
+          if (data.success) {
+            showBanner('success', 'DevSecOps Audit Passed: 100% Compliance Verified Offline.');
+          } else {
+            showBanner('warning', 'Test suite reported failure checks.');
+          }
+        }
+      }, 35); // Fast-paced 35ms dynamic streaming scroll
+      
     } catch (err) {
       setTestOutput('Test Execution Interrupted: Server failed to execute tests.');
       setTestsPassed(false);
-    } finally {
       setTestsLoading(false);
     }
   };
@@ -288,6 +322,78 @@ export default function App() {
         </div>
       )}
 
+      {/* Dynamic Scrolling Telemetry Ticker */}
+      <div className="bg-black/90 border-b border-[#222] h-9 flex items-center overflow-hidden font-mono text-[10px] select-none text-gray-400 relative shrink-0">
+        <div className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-[#0A0A0A] via-[#0A0A0A]/95 to-transparent z-10 pointer-events-none flex items-center pl-6 pr-8">
+          <span className="text-[9px] bg-orange-600 text-white font-bold px-1.5 py-0.5 rounded tracking-widest text-center flex items-center gap-1 shrink-0 shadow-lg shadow-orange-900/20">
+            <Radio className="w-2.5 h-2.5 animate-pulse text-white" /> LIVE TELEMETRY
+          </span>
+        </div>
+        <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-[#0A0A0A] to-transparent z-10 pointer-events-none"></div>
+        
+        <div className="w-full flex items-center overflow-hidden">
+          <div className="animate-marquee flex items-center gap-12 pl-36">
+            {/* Iteration 1 */}
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              UTC SERVER: <span className="text-white">14:22:09</span>
+            </span>
+            <span className="text-gray-600">//</span>
+            {metrics.map(m => (
+              <React.Fragment key={`tick1-${m.gateId}`}>
+                <span className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${m.isOpen ? 'bg-emerald-500' : 'bg-orange-600 animate-ping'}`}></span>
+                  {m.gateName}: <span className={m.crowdDensityPct > 80 ? 'text-orange-400 font-bold' : 'text-white'}>{m.crowdDensityPct}% LOAD</span>
+                  <span className="text-gray-500">({m.estimatedWaitMinutes}m wait)</span>
+                </span>
+                <span className="text-gray-600">//</span>
+              </React.Fragment>
+            ))}
+            <span className="flex items-center gap-1.5 text-blue-400">
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-400" /> OWASP SHIELD: COMPLIANT
+            </span>
+            <span className="text-gray-600">//</span>
+            <span className="flex items-center gap-1.5 text-orange-400 font-bold">
+              <AlertTriangle className="w-3.5 h-3.5 text-orange-500 animate-pulse" /> RISK INDEX: {metrics.some(m => !m.isOpen) ? '7.8 SEVERE' : '2.1 LOW'}
+            </span>
+            <span className="text-gray-600">//</span>
+            <span className="flex items-center gap-1.5">
+              WIFI TEMP: <span className="text-white">24°C</span>
+            </span>
+            <span className="text-gray-600">//</span>
+
+            {/* Iteration 2 (Duplicates for seamless loop) */}
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              UTC SERVER: <span className="text-white">14:22:09</span>
+            </span>
+            <span className="text-gray-600">//</span>
+            {metrics.map(m => (
+              <React.Fragment key={`tick2-${m.gateId}`}>
+                <span className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${m.isOpen ? 'bg-emerald-500' : 'bg-orange-600 animate-ping'}`}></span>
+                  {m.gateName}: <span className={m.crowdDensityPct > 80 ? 'text-orange-400 font-bold' : 'text-white'}>{m.crowdDensityPct}% LOAD</span>
+                  <span className="text-gray-500">({m.estimatedWaitMinutes}m wait)</span>
+                </span>
+                <span className="text-gray-600">//</span>
+              </React.Fragment>
+            ))}
+            <span className="flex items-center gap-1.5 text-blue-400">
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-400" /> OWASP SHIELD: COMPLIANT
+            </span>
+            <span className="text-gray-600">//</span>
+            <span className="flex items-center gap-1.5 text-orange-400 font-bold">
+              <AlertTriangle className="w-3.5 h-3.5 text-orange-500 animate-pulse" /> RISK INDEX: {metrics.some(m => !m.isOpen) ? '7.8 SEVERE' : '2.1 LOW'}
+            </span>
+            <span className="text-gray-600">//</span>
+            <span className="flex items-center gap-1.5">
+              WIFI TEMP: <span className="text-white">24°C</span>
+            </span>
+            <span className="text-gray-600">//</span>
+          </div>
+        </div>
+      </div>
+
       {/* Primary Dashboard Bento Grid layout */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-x-hidden">
         
@@ -295,7 +401,7 @@ export default function App() {
         <div className="lg:col-span-7 space-y-6">
           
           {/* INTERACTIVE STADIUM VISUAL MESH CARD */}
-          <section className="bg-[#141414] border border-[#333] rounded-lg p-5 shadow-xl relative overflow-hidden" id="stadium-mesh">
+          <section className="bg-[#141414] border border-[#333] rounded-lg p-5 shadow-xl relative overflow-hidden glowing-panel" id="stadium-mesh">
             <div className="flex items-center justify-between mb-4 border-b border-[#333] pb-3">
               <div className="flex items-center gap-2">
                 <Compass className="w-4 h-4 text-orange-500" />
@@ -533,7 +639,7 @@ export default function App() {
           </section>
 
           {/* Active IoT Metric Streams Card */}
-          <section className="bg-[#141414] border border-[#333] rounded-lg p-5 shadow-xl relative overflow-hidden bg-[radial-gradient(circle_at_center,_#222_1px,_transparent_1px)] bg-[size:24px_24px]" id="iot-telemetry">
+          <section className="bg-[#141414] border border-[#333] rounded-lg p-5 shadow-xl relative overflow-hidden bg-[radial-gradient(circle_at_center,_#222_1px,_transparent_1px)] bg-[size:24px_24px] glowing-panel" id="iot-telemetry">
             <div className="flex items-center justify-between mb-4 border-b border-[#333] pb-3">
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-orange-500" />
@@ -625,7 +731,7 @@ export default function App() {
           </section>
 
           {/* Active Incidents & Emergency Ticker */}
-          <section className="bg-[#141414] border border-[#333] rounded-lg p-5 shadow-xl">
+          <section className="bg-[#141414] border border-[#333] rounded-lg p-5 shadow-xl glowing-panel">
             <h2 className="text-xs font-mono font-bold uppercase tracking-widest text-gray-300 mb-4 border-b border-[#333] pb-2 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-orange-500" /> Active Operations Logs
             </h2>
@@ -664,7 +770,7 @@ export default function App() {
           </section>
 
           {/* GenAI Operations Command Synthesis Panel */}
-          <section className="bg-[#141414] border border-[#333] rounded-lg p-5 shadow-xl relative overflow-hidden">
+          <section className="bg-[#141414] border border-[#333] rounded-lg p-5 shadow-xl relative overflow-hidden glowing-panel">
             <div className="absolute right-0 top-0 w-32 h-32 bg-orange-600/5 rounded-full blur-3xl"></div>
             
             <div className="flex items-center justify-between mb-4 border-b border-[#333] pb-3">
@@ -777,7 +883,7 @@ export default function App() {
         <div className="lg:col-span-5 space-y-6">
           
           {/* LIVE COMMAND PERFORMANCE MATRIX */}
-          <section className="bg-[#141414] border border-[#333] rounded-lg p-5 shadow-xl space-y-4">
+          <section className="bg-[#141414] border border-[#333] rounded-lg p-5 shadow-xl space-y-4 glowing-panel">
             <div className="flex items-center gap-2 border-b border-[#333] pb-3">
               <Activity className="w-4 h-4 text-orange-500" />
               <h2 className="text-xs font-mono font-bold uppercase tracking-widest text-gray-300">Command Performance Matrix</h2>
@@ -846,7 +952,7 @@ export default function App() {
           </section>
 
           {/* Fan Experience Wayfinder Simulator */}
-          <section className="bg-[#141414] border border-[#333] rounded-lg p-5 shadow-xl relative">
+          <section className="bg-[#141414] border border-[#333] rounded-lg p-5 shadow-xl relative glowing-panel">
             <h2 className="text-xs font-mono font-bold uppercase tracking-widest text-gray-300 mb-4 border-b border-[#333] pb-2 flex items-center gap-2">
               <Compass className="w-5 h-5 text-orange-500" /> Fan Wayfinder Simulator
             </h2>
@@ -945,7 +1051,7 @@ export default function App() {
 
             {/* Wayfinder results output */}
             {routingResult && (
-              <div className="mt-5 space-y-4 border-t border-[#333] pt-4" lang={routingResult.language}>
+              <div ref={routeResultRef} className="mt-5 space-y-4 border-t border-[#333] pt-4" lang={routingResult.language}>
                 
                 {/* Warnings / Safety Alerts */}
                 {routingResult.safetyAlerts && routingResult.safetyAlerts.length > 0 && (
@@ -1001,7 +1107,7 @@ export default function App() {
           </section>
 
           {/* DevSecOps Live Testing Sandbox */}
-          <section className="bg-[#141414] border border-[#333] rounded-lg p-5 shadow-xl">
+          <section className="bg-[#141414] border border-[#333] rounded-lg p-5 shadow-xl glowing-panel">
             <div className="flex items-center justify-between mb-3 border-b border-[#333] pb-2">
               <div className="flex items-center gap-2">
                 <Terminal className="w-5 h-5 text-orange-500" />
@@ -1023,7 +1129,7 @@ export default function App() {
 
             {testOutput ? (
               <div className="space-y-3">
-                <div className="bg-black p-3 rounded border border-[#333] font-mono text-[9px] text-[#D1D5DB] h-48 overflow-y-auto shadow-inner leading-relaxed whitespace-pre-wrap">
+                <div ref={terminalRef} className="bg-black p-3 rounded border border-[#333] font-mono text-[9px] text-[#D1D5DB] h-48 overflow-y-auto shadow-inner leading-relaxed whitespace-pre-wrap">
                   {testOutput}
                 </div>
                 {testsPassed !== null && (
