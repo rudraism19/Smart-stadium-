@@ -1,0 +1,6 @@
+{
+  "name": "FIFA 2026 Smart Stadium Platform",
+  "description": "An advanced operations command and real-time multilingual fan experience routing platform for the FIFA World Cup 2026, featuring GenAI orchestration, PII redaction, and WCAG-compliant dynamic layouts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
