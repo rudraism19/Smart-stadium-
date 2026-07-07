@@ -75,6 +75,10 @@ export default function App() {
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const routeResultRef = useRef<HTMLDivElement | null>(null);
 
+  // Advanced Memory Safety: Refs for async timeouts and stream simulation intervals
+  const bannerTimeoutRef = useRef<any>(null);
+  const testIntervalRef = useRef<any>(null);
+
   // Auto-scroll terminal to bottom as log data streams in
   useEffect(() => {
     if (terminalRef.current) {
@@ -88,6 +92,14 @@ export default function App() {
       routeResultRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }, [routingResult]);
+
+  // Clean up timers on unmount to prevent memory leaks and warning logs
+  useEffect(() => {
+    return () => {
+      if (bannerTimeoutRef.current) clearTimeout(bannerTimeoutRef.current);
+      if (testIntervalRef.current) clearInterval(testIntervalRef.current);
+    };
+  }, []);
 
   // Notification Banner
   const [banner, setBanner] = useState<{ type: 'success' | 'warning' | 'info'; message: string } | null>({
@@ -124,9 +136,13 @@ export default function App() {
   };
 
   const showBanner = (type: 'success' | 'warning' | 'info', message: string) => {
+    if (bannerTimeoutRef.current) {
+      clearTimeout(bannerTimeoutRef.current);
+    }
     setBanner({ type, message });
-    setTimeout(() => {
+    bannerTimeoutRef.current = setTimeout(() => {
       setBanner(null);
+      bannerTimeoutRef.current = null;
     }, 6000);
   };
 
@@ -203,6 +219,9 @@ export default function App() {
 
   // Run Backend Test Suite with dynamic log streaming simulation
   const handleRunTests = async () => {
+    if (testIntervalRef.current) {
+      clearInterval(testIntervalRef.current);
+    }
     setTestsLoading(true);
     setTestOutput('Launching Smart Stadium DevSecOps Audit & Test runner...\n');
     setTestsPassed(null);
@@ -215,13 +234,16 @@ export default function App() {
       let currentOutput = 'Initializing secure sandbox...\nStarting Aztec Node-04 check-in protocol...\n\n';
       let lineIndex = 0;
       
-      const interval = setInterval(() => {
+      testIntervalRef.current = setInterval(() => {
         if (lineIndex < lines.length) {
           currentOutput += lines[lineIndex] + '\n';
           setTestOutput(currentOutput);
           lineIndex++;
         } else {
-          clearInterval(interval);
+          if (testIntervalRef.current) {
+            clearInterval(testIntervalRef.current);
+            testIntervalRef.current = null;
+          }
           setTestsPassed(data.success);
           setTestsLoading(false);
           if (data.success) {
@@ -233,6 +255,10 @@ export default function App() {
       }, 35); // Fast-paced 35ms dynamic streaming scroll
       
     } catch (err) {
+      if (testIntervalRef.current) {
+        clearInterval(testIntervalRef.current);
+        testIntervalRef.current = null;
+      }
       setTestOutput('Test Execution Interrupted: Server failed to execute tests.');
       setTestsPassed(false);
       setTestsLoading(false);
